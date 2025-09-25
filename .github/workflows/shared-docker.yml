@@ -41,8 +41,7 @@ jobs:
           registry: ghcr.io
 
       - name: Build Docker image
-        run: |
-          docker build -t ${{ inputs.image_name }}:latest .
+        run: docker build -t ${{ inputs.image_name }}:latest .
 
       - name: Push to DockerHub
         run: |
