@@ -8,8 +8,7 @@ on:
     secrets:
       GHCR_PAT:
         required: true
-      SLACK_WEBHOOK:
-        required: true
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -35,12 +34,3 @@ jobs:
         with:
           name: trivy-report
           path: trivy-report.txt
-      - name: Notify Slack
-        if: always()
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook-type: incoming-webhook
-          payload: |
-            {"text": "Docker build & scan → *${{ job.status }}*"}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
