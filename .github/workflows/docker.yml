@@ -1,4 +1,4 @@
-name: Shared GHCR Build & Trivy with Slack
+name: Doker Build Scan
 on:
   workflow_call:
     inputs:
