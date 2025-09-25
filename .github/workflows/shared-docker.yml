@@ -1,4 +1,4 @@
-name: Shared GHCR Build & Trivy with Slack
+name: Shared GHCR Build & Trivy
 on:
   workflow_call:
     inputs:
