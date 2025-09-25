@@ -1,72 +1,46 @@
-name: Shared Docker Workflow
-
+name: Shared GHCR Build & Trivy with Slack
 on:
   workflow_call:
     inputs:
-      image_name:
-        required: true
-        type: string
-      dockerhub_username:
+      dockerfile:
         required: true
         type: string
     secrets:
-      DOCKERHUB_TOKEN:
-        required: true
-      GHCR_TOKEN:
+      GHCR_PAT:
         required: true
       SLACK_WEBHOOK:
         required: true
-
 jobs:
-  build-and-push:
+  docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ inputs.dockerhub_username }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
+      - name: Checkout repository
+        uses: actions/checkout@v5
       - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-          registry: ghcr.io
-
-      - name: Build Docker image
-        run: docker build -t ${{ inputs.image_name }}:latest .
-
-      - name: Push to DockerHub
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Build & Push Docker image
         run: |
-          docker tag ${{ inputs.image_name }}:latest ${{ inputs.dockerhub_username }}/${{ inputs.image_name }}:latest
-          docker push ${{ inputs.dockerhub_username }}/${{ inputs.image_name }}:latest
-
-      - name: Push to GHCR
-        run: |
-          docker tag ${{ inputs.image_name }}:latest ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:latest
-
-      - name: Run Hadolint on Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
+          IMAGE=ghcr.io/${{ github.repository_owner }}/app:latest
+          docker build -f ${{ inputs.dockerfile }} -t $IMAGE .
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          dockerfile: ./Dockerfile
-
-      - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@master
+          image-ref: ${{ env.IMAGE }}
+          format: table
+          output: trivy-report.txt
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
         with:
-          image-ref: ${{ inputs.image_name }}:latest
-          format: 'table'
-          exit-code: '0'
-
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
+          name: trivy-report
+          path: trivy-report.txt
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook-type: incoming-webhook
+          payload: |
+            {"text": "Docker build & scan → *${{ job.status }}*"}
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_MESSAGE: "Build and Push completed for ${{ inputs.image_name }}"
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
