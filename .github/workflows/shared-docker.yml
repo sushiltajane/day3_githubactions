@@ -10,6 +10,8 @@ on:
         required: true
       DOCKER_HUB_TOKEN:
         required: true
+      SLACK_WEBHOOK_URL:
+        required: true
 
 jobs:
   docker:
@@ -42,3 +44,36 @@ jobs:
         with:
           name: trivy-report
           path: trivy-report.txt
+
+      - name: Notify Slack
+        if: always() # send notification even if job fails
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":whale: *DockerHub Build & Trivy Scan Completed*",
+              "attachments": [
+                {
+                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                  "fields": [
+                    {
+                      "title": "Repository",
+                      "value": "${{ github.repository }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Status",
+                      "value": "${{ job.status }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Image",
+                      "value": "${{ env.IMAGE }}",
+                      "short": false
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
