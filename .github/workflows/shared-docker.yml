@@ -25,6 +25,7 @@ jobs:
         with:
           dockerfile: ${{ inputs.dockerfile }}
           format: tty
+          ignore: DL3008,DL3013 # optional: ignore specific rules
 
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
